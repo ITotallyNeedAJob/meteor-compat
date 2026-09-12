@@ -39,13 +39,13 @@ ratted. see rat above. we cant help you. change your passwords and stop download
 
 ## perf stuff
 
-has some electron-inspired tweaks baked in natively (cached module lookups, 2d skip when nobody listens, lightmap clear-once). no extra deps. stays lite.
+has some tweaks inspired by [electron](https://github.com/crosby-moe/Electron) baked in natively (cached module lookups, 2d skip when nobody listens, lightmap clear-once). electron itself is ancient btw, last commit june 2025, built for the 1.21.5 era, do NOT drop it in your mods folder expecting it to boot. we ported the ideas, not the code. no extra deps. stays lite.
 
 ## credits
 
 - meteor devs for the actual client
 - liquidbounce for the house we live in
-- racoondog for electron (we stole the ideas, not the code)
+- crosby-moe for [electron](https://github.com/crosby-moe/Electron) (we stole the ideas, not the code. rip, last commit june 2025)
 - the rat
 
 ## disclaimer
