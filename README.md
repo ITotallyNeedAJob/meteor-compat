@@ -28,6 +28,9 @@ command fights between LB and meteor? LB wins. thats intentional. `bind`/`toggle
 **my freecam walks forward by itself??**
 some freecam addons have a `continue-walking` option thats ON by default. turn it off. your W key is fine. LB is fine. we checked.
 
+**freecam doesnt work as intended?**
+known issue (or possible issue). some freecams just dont behave right running next to liquidbounce, both clients fight over movement input and LB usually wins. if one is broken try the other client's freecam instead. no eta.
+
 **server spoofer?**
 LB's clientspoofer already covers ALL traffic including meteor's. leave meteor's `server-spoof` OFF or youre double-spoofing like a clown.
 
