@@ -14,6 +14,8 @@ you know how it is. you want liquidbounce but you also want your meteor addons. 
 
 drop the jar in mods. drop your addons in mods. thats the whole setup. plug and play.
 
+ships with ZERO default meteor modules btw. no freecam, no esp, no nothing. thats LB's job now. addons bring their own modules.
+
 ## how to use
 
 1. fabric loader `0.19.5`, minecraft `1.21.11`

@@ -5,8 +5,6 @@
 
 package meteordevelopment.meteorclient.utils.render;
 
-import meteordevelopment.meteorclient.systems.modules.Modules;
-import meteordevelopment.meteorclient.systems.modules.render.BetterTooltips;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import net.minecraft.client.gl.RenderPipelines;
@@ -34,13 +32,7 @@ public class PeekScreen extends ShulkerBoxScreen {
 
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
-        BetterTooltips tooltips = Modules.get().get(BetterTooltips.class);
-
-        if (tooltips.shouldOpenContents(click) && focusedSlot != null && !focusedSlot.getStack().isEmpty() && mc.player.currentScreenHandler.getCursorStack().isEmpty()) {
-            ItemStack itemStack = focusedSlot.getStack();
-            return tooltips.openContent(itemStack);
-        }
-
+        // COMPAT: BetterTooltips removed - nested content opening disabled.
         return false;
     }
 
@@ -51,15 +43,7 @@ public class PeekScreen extends ShulkerBoxScreen {
 
     @Override
     public boolean keyPressed(KeyInput input) {
-        BetterTooltips tooltips = Modules.get().get(BetterTooltips.class);
-
-        if (tooltips.shouldOpenContents(input) && focusedSlot != null && !focusedSlot.getStack().isEmpty() && mc.player.currentScreenHandler.getCursorStack().isEmpty()) {
-            ItemStack itemStack = focusedSlot.getStack();
-            if (tooltips.openContent(itemStack)) {
-                return true;
-            }
-        }
-
+        // COMPAT: BetterTooltips removed - nested content opening disabled.
         if (input.comp_4795() == GLFW.GLFW_KEY_ESCAPE || mc.options.inventoryKey.matchesKey(input)) {
             close();
             return true;

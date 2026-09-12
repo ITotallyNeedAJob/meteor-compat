@@ -5,9 +5,6 @@
 
 package meteordevelopment.meteorclient.utils.notebot.decoder;
 
-import meteordevelopment.meteorclient.systems.modules.Modules;
-import meteordevelopment.meteorclient.systems.modules.misc.Notebot;
-import meteordevelopment.meteorclient.utils.notebot.NotebotUtils;
 import meteordevelopment.meteorclient.utils.notebot.song.Note;
 import meteordevelopment.meteorclient.utils.notebot.song.Song;
 import net.minecraft.block.enums.NoteBlockInstrument;
@@ -64,38 +61,10 @@ public class SongDecoders {
     }
 
     /**
-     * This method adapts {@link Song} to settings in Notebot module
+     * COMPAT: Notebot module removed - song adaptation is a no-op.
      *
      * @param song A song
      */
     private static void fixSong(Song song) {
-        Notebot notebot = Modules.get().get(Notebot.class);
-
-        var iterator = song.getNotesMap().entries().iterator();
-        while (iterator.hasNext()) {
-            var entry = iterator.next();
-            int tick = entry.getKey();
-            Note note = entry.getValue();
-
-            int n = note.getNoteLevel();
-            if (n < 0 || n > 24) {
-                if (notebot.roundOutOfRange.get()) {
-                    note.setNoteLevel(n < 0 ? 0 : 24);
-                } else {
-                    notebot.warning("Note at tick %d out of range.", tick);
-                    iterator.remove();
-                    continue;
-                }
-            }
-
-            if (notebot.mode.get() == NotebotUtils.NotebotMode.ExactInstruments) {
-                NoteBlockInstrument newInstrument = notebot.getMappedInstrument(note.getInstrument());
-                if (newInstrument != null) {
-                    note.setInstrument(newInstrument);
-                }
-            } else {
-                note.setInstrument(null);
-            }
-        }
     }
 }

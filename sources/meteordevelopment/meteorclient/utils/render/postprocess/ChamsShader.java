@@ -15,8 +15,6 @@ import meteordevelopment.meteorclient.events.game.ResourcePacksReloadedEvent;
 import meteordevelopment.meteorclient.renderer.MeshRenderer;
 import meteordevelopment.meteorclient.renderer.MeteorRenderPipelines;
 import meteordevelopment.meteorclient.renderer.Texture;
-import meteordevelopment.meteorclient.systems.modules.Modules;
-import meteordevelopment.meteorclient.systems.modules.render.Chams;
 import meteordevelopment.meteorclient.utils.PostInit;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.orbit.EventHandler;
@@ -37,7 +35,7 @@ public class ChamsShader extends EntityShader {
     private static final String[] FILE_FORMATS = { "png", "jpg" };
 
     private static Texture IMAGE_TEX;
-    private static Chams chams;
+    // COMPAT: Chams removed - shader never draws.
 
     public ChamsShader() {
         super(MeteorRenderPipelines.POST_IMAGE);
@@ -88,27 +86,17 @@ public class ChamsShader extends EntityShader {
 
     @Override
     protected void setupPass(MeshRenderer renderer) {
-        Color color = chams.shaderColor.get();
-
-        renderer.uniform("ImageData", UNIFORM_STORAGE.write(new UniformData(
-            color.r / 255f, color.g / 255f, color.b / 255f, color.a / 255f
-        )));
-
-        if (chams.isShader() && chams.shader.get() == Chams.Shader.Image && IMAGE_TEX != null) {
-            renderer.sampler("u_TextureI", IMAGE_TEX.getGlTextureView(), IMAGE_TEX.getSampler());
-        }
+        // COMPAT: Chams removed - no uniforms to set.
     }
 
     @Override
     protected boolean shouldDraw() {
-        if (chams == null) chams = Modules.get().get(Chams.class);
-        return chams.isShader();
+        return false;
     }
 
     @Override
     public boolean shouldDraw(Entity entity) {
-        if (!shouldDraw()) return false;
-        return chams.entities.get().contains(entity.getType()) && (entity != mc.player || !chams.ignoreSelfDepth.get());
+        return false;
     }
 
     // Uniforms

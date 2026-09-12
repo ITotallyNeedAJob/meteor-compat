@@ -6,8 +6,6 @@
 package meteordevelopment.meteorclient.utils.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import meteordevelopment.meteorclient.systems.modules.Modules;
-import meteordevelopment.meteorclient.systems.modules.render.Zoom;
 import meteordevelopment.meteorclient.utils.Utils;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.math.MathHelper;
@@ -50,8 +48,8 @@ public class NametagUtils {
     }
 
     public static boolean to2D(Vector3d pos, double scale, boolean distanceScaling, boolean allowBehind) {
-        Zoom zoom = Modules.get().get(Zoom.class);
-        NametagUtils.scale = scale * zoom.getScaling();
+        // COMPAT: Zoom removed - no zoom scaling (neutral factor 1).
+        NametagUtils.scale = scale;
         if (distanceScaling) {
             NametagUtils.scale *= getScale(pos);
         }

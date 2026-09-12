@@ -8,7 +8,6 @@ package meteordevelopment.meteorclient.asm.transformers;
 import meteordevelopment.meteorclient.asm.AsmTransformer;
 import meteordevelopment.meteorclient.asm.Descriptor;
 import meteordevelopment.meteorclient.asm.MethodInfo;
-import meteordevelopment.meteorclient.systems.modules.misc.AntiPacketKick;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -28,35 +27,6 @@ public class PacketInflaterTransformer extends AsmTransformer {
 
     @Override
     public void transform(ClassNode klass) {
-        MethodNode method = getMethod(klass, decodeMethod);
-        if (method == null) error("[Meteor Client] Could not find method PacketInflater.decode()");
-
-        int newCount = 0;
-        LabelNode label = new LabelNode(new Label());
-
-        //noinspection DataFlowIssue
-        for (AbstractInsnNode insn : method.instructions) {
-            if (insn instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.NEW && typeInsn.desc.equals("io/netty/handler/codec/DecoderException")) {
-                newCount++;
-
-                if (newCount == 2) {
-                    InsnList list = new InsnList();
-
-                    list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "meteordevelopment/meteorclient/systems/modules/Modules", "get", "()Lmeteordevelopment/meteorclient/systems/modules/Modules;", false));
-                    list.add(new LdcInsnNode(Type.getType(AntiPacketKick.class)));
-                    list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "meteordevelopment/meteorclient/systems/modules/Modules", "isActive", "(Ljava/lang/Class;)Z", false));
-
-                    list.add(new JumpInsnNode(Opcodes.IFNE, label));
-
-                    method.instructions.insertBefore(insn, list);
-                }
-            }
-            else if (newCount == 2 && insn.getOpcode() == Opcodes.ATHROW) {
-                method.instructions.insert(insn, label);
-                return;
-            }
-        }
-
-        error("[Meteor Client] Failed to modify PacketInflater.decode()");
+        // COMPAT: AntiPacketKick removed - transformer is a no-op (kept registered so Asm stays compiling).
     }
 }
