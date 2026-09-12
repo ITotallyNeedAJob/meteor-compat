@@ -1,0 +1,128 @@
+/*
+ * This file is part of the Meteor Client distribution (https://github.com/MeteorDevelopment/meteor-client).
+ * Copyright (c) Meteor Development.
+ */
+
+package meteordevelopment.meteorclient.mixin;
+
+import it.unimi.dsi.fastutil.io.FastByteArrayOutputStream;
+import meteordevelopment.meteorclient.MeteorClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.BookEditScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.nbt.*;
+import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Base64;
+import java.util.List;
+
+import static meteordevelopment.meteorclient.MeteorClient.mc;
+
+@Mixin(BookEditScreen.class)
+public abstract class BookEditScreenMixin extends Screen {
+    @Shadow @Final private List<String> pages;
+    @Shadow private int currentPage;
+
+    @Shadow
+    protected abstract void updatePage();
+
+    @Shadow
+    protected abstract void openNextPage();
+
+    @Shadow
+    protected abstract void openPreviousPage();
+
+    public BookEditScreenMixin(Text title) {
+        super(title);
+    }
+
+    @Inject(method = "init", at = @At("TAIL"))
+    private void onInit(CallbackInfo info) {
+        addDrawableChild(
+            new ButtonWidget.Builder(Text.literal("Copy"), button -> {
+                NbtList listTag = new NbtList();
+                    pages.stream().map(NbtString::of).forEach(listTag::add);
+
+                    NbtCompound tag = new NbtCompound();
+                    tag.put("pages", listTag);
+                    tag.putInt("currentPage", currentPage);
+
+                    FastByteArrayOutputStream bytes = new FastByteArrayOutputStream();
+                    DataOutputStream out = new DataOutputStream(bytes);
+                    try {
+                        NbtIo.write(tag, out);
+                    } catch (IOException e) {
+                        MeteorClient.LOG.error("Error writing the book to the output stream", e);
+                    }
+
+                    try {
+                        GLFW.glfwSetClipboardString(mc.getWindow().getHandle(), Base64.getEncoder().encodeToString(bytes.array));
+                    } catch (OutOfMemoryError exception) {
+                        GLFW.glfwSetClipboardString(mc.getWindow().getHandle(), exception.toString());
+                    }
+                })
+                .position(4, 4)
+                .size(120, 20)
+                .build()
+        );
+
+        addDrawableChild(
+                new ButtonWidget.Builder(Text.literal("Paste"), button -> {
+                    String clipboard = GLFW.glfwGetClipboardString(mc.getWindow().getHandle());
+                    if (clipboard == null) return;
+
+                    byte[] bytes;
+                    try {
+                        bytes = Base64.getDecoder().decode(clipboard);
+                    } catch (IllegalArgumentException ignored) {
+                        return;
+                    }
+                    DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
+
+                    try {
+                        NbtCompound tag = NbtIo.readCompressed(in, NbtSizeTracker.ofUnlimitedBytes());
+
+                        NbtList listTag = tag.getListOrEmpty("pages").copy();
+
+                        pages.clear();
+                        for(int i = 0; i < listTag.size(); ++i) {
+                            pages.add(listTag.getString(i, ""));
+                        }
+
+                        if (pages.isEmpty()) {
+                            pages.add("");
+                        }
+
+                        currentPage = tag.getInt("currentPage", 0);
+
+                        updatePage();
+                    } catch (IOException e) {
+                        MeteorClient.LOG.error("Error reading the data from your clipboard", e);
+                    }
+                })
+                .position(4, 4 + 20 + 2)
+                .size(120, 20)
+                .build()
+        );
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (verticalAmount == 0) return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+
+        if (verticalAmount < 0) this.openNextPage();    // scroll down
+        else this.openPreviousPage();                   // scroll up
+        return true;
+    }
+}

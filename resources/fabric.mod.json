@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "meteor-client",
+  "version": "1.0.0-compat",
+  "name": "Meteor Compat + Bridge",
+  "description": "Meteor addon-ABI host plus the LiquidBounce bridge (ClickGUI module proxies). Meteor chat commands defer to LiquidBounce's own commands on name clashes.",
+  "authors": ["compat"],
+  "license": "GPL-3.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "meteordevelopment.meteorclient.MeteorClient",
+      "com.meteorbridge.BridgeClient"
+    ]
+  },
+  "mixins": [
+    "meteor-client.mixins.json"
+  ],
+  "depends": {
+    "java": ">=21",
+    "minecraft": "1.21.11",
+    "fabricloader": ">=0.18.2",
+    "fabric-language-kotlin": "*"
+  },
+  "accessWidener": "meteor-client.accesswidener"
+}
