@@ -32,7 +32,7 @@ some freecam addons have a `continue-walking` option thats ON by default. turn i
 LB's clientspoofer already covers ALL traffic including meteor's. leave meteor's `server-spoof` OFF or youre double-spoofing like a clown.
 
 **is this a skid of meteor?**
-meteor is open source bro. this is a compat layer so addons think meteor is here when its actually liquidbounce's house. everything is skidded if you think about it hard enough.
+yeah basically. its meteor's code running where meteor was never meant to run: next to liquidbounce. addons think meteor is here, meanwhile its liquidbounce's house and meteor is just crashing on the couch. skid responsibly.
 
 **i ran a jar from someone's dms and now im logged out everywhere?**
 ratted. see rat above. we cant help you. change your passwords and stop downloading `free_coins_mod.jar`.
