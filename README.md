@@ -31,6 +31,9 @@ some freecam addons have a `continue-walking` option thats ON by default. turn i
 **freecam doesnt work as intended?**
 known issue (or possible issue). some freecams just dont behave right running next to liquidbounce, both clients fight over movement input and LB usually wins. if one is broken try the other client's freecam instead. no eta.
 
+**LB command autosuggest is broken?**
+yeah the suggestions popup doesnt work properly with the bridge in the mix. commands themselves still run fine, just type them blind like its 2015. known issue.
+
 **server spoofer?**
 LB's clientspoofer already covers ALL traffic including meteor's. leave meteor's `server-spoof` OFF or youre double-spoofing like a clown.
 
