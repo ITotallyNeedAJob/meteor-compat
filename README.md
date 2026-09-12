@@ -25,14 +25,8 @@ command fights between LB and meteor? LB wins. thats intentional. `bind`/`toggle
 
 ## faq (read before crying in chat)
 
-**larp v8 crashes on boot with some native dll garbage?**
-yeah. windows defender eats `s.dll` because larp ships a packed native and it looks ratted (its not. probably). add an exclusion for your java / temp folder or restore it from quarantine. not our bug, cant fix it from here, OS level. larp v7 has the same energy.
-
 **my freecam walks forward by itself??**
-thats larp's `continue-walking`, its ON by default. turn it off. your W key is fine. LB is fine. we checked.
-
-**obfuscated addons (leakestan etc)?**
-work. loader was hardened for them. if some skid encrypts their addon with string garbage it still boots.
+some freecam addons have a `continue-walking` option thats ON by default. turn it off. your W key is fine. LB is fine. we checked.
 
 **server spoofer?**
 LB's clientspoofer already covers ALL traffic including meteor's. leave meteor's `server-spoof` OFF or youre double-spoofing like a clown.
@@ -56,4 +50,4 @@ has some electron-inspired tweaks baked in natively (cached module lookups, 2d s
 
 ## disclaimer
 
-for educational purposes. not affiliated with meteor, liquidbounce, larp, or the rat.
+for educational purposes. not affiliated with meteor, liquidbounce, or the rat.
