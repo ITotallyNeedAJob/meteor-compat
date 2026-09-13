@@ -16,13 +16,13 @@ drop the jar in mods. drop your addons in mods. thats the whole setup. plug and 
 
 ships with ZERO default meteor modules btw. no freecam, no esp, no nothing. thats LB's job now. addons bring their own modules.
 
-> looking for the old 1.21.11 build? its on the `1.21.11` branch. this branch (`main`) is 26.2 only. grabs the matching jar from releases, dont mix them or it wont boot and thats on you.
+> looking for the old 1.21.11 build? its on the `1.21.11` branch. this branch (`main`) is 26.2 only. grabs the matching jar from releases, dont mix them or it wont boot and thats on you,1.21.11 will still recieve patch and update
 
 ## how to use
 
 1. fabric loader `>=0.19.3`, minecraft `26.2`, java `25`
 2. put `meteor-compat-1.0.0-compat26.2.jar` in `mods/`
-3. put liquidbounce `1.26.2` in `mods/` too
+3. put liquidbounce `0.40.0` in `mods/` too
 4. put your (totally legitimately obtained, and built-for-26.2) meteor addons in `mods/` too
 5. launch. `.bind` stuff. profit.
 
