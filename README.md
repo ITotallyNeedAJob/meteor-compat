@@ -1,30 +1,42 @@
 # meteor-compat
-![maybe logo maybe not](download.png)
+
+```
+       (\_/)
+       (o.o)   < this is the rat. for reference.
+       (> <)    if your session looks like this, you got ratted. skill issue.
+```
+
 [live rat cam](https://bigrat.monster)
 
 ## what is this
 
-you know how it is. you want liquidbounce but you also want your meteor addons. pick one? no. this is the bridge that lets meteor addons run **next to** liquidbounce on **1.21.11** without per-addon patches or whatever.
+you know how it is. you want liquidbounce but you also want your meteor addons. pick one? no. this is the bridge that lets meteor addons run **next to** liquidbounce on **26.2** without per-addon patches or whatever.
 
 drop the jar in mods. drop your addons in mods. thats the whole setup. plug and play.
 
 ships with ZERO default meteor modules btw. no freecam, no esp, no nothing. thats LB's job now. addons bring their own modules.
 
-## pick your poison (versions)
-
-- **1.21.11** (this folder): fabric loader `0.19.5`, LB `0.37.0`, jar `meteor-compat-1.0.0-compat.jar`
-- **26.2** (`meteor-compat-26.2/` subfolder): fabric loader `>=0.19.3`, java 25, LB `1.26.2`, jar `meteor-compat-1.0.0-compat26.2.jar`
-
-both jars are attached to the github release. grab the one that matches your minecraft, dont mix them or it wont boot and thats on you.
+> looking for the old 1.21.11 build? its on the `1.21.11` branch. this branch (`main`) is 26.2 only. grabs the matching jar from releases, dont mix them or it wont boot and thats on you.
 
 ## how to use
 
-1. fabric loader (see versions above), matching minecraft
-2. put the matching `meteor-compat-*.jar` in `mods/`
-3. put your (totally legitimately obtained) meteor addons in `mods/` too (they must be built for YOUR minecraft version, 1.21.11 addons will NOT load on 26.2 and vice versa)
-4. launch. `.bind` stuff. profit.
+1. fabric loader `>=0.19.3`, minecraft `26.2`, java `25`
+2. put `meteor-compat-1.0.0-compat26.2.jar` in `mods/`
+3. put liquidbounce `1.26.2` in `mods/` too
+4. put your (totally legitimately obtained, and built-for-26.2) meteor addons in `mods/` too
+5. launch. `.bind` stuff. profit.
 
-command fights between LB and meteor? LB wins. thats intentional. `bind`/`toggle` route to meteor only when LB doesnt own the module.
+command fights between LB and meteor? LB wins. thats intentional. `bind`/`toggle` route to meteor only when LB doesnt own the module. RShift opens LB's clickgui, meteor's gui is gone. thats also intentional.
+
+## building it yourself
+
+needs jdk 25 to run gradle (mc 26.2 is java 25). point gradle at yours via `~/.gradle/gradle.properties`:
+
+```
+org.gradle.java.home=<path-to-jdk25>
+```
+
+drop a liquidbounce `1.26.2` jar at `libs/liquidbounce-1.26.2.jar` (compile-only, never bundled, gitignored so it wont end up in your commits), then `.\gradlew build -x test`.
 
 ## faq (read before crying in chat)
 
@@ -50,8 +62,8 @@ has some tweaks inspired by [electron](https://github.com/crosby-moe/Electron) b
 
 ## credits
 
-- [Meteor](https://github.com/meteorDevelopment/meteor-client) for the actual client
-- [Liquidbounce](https://github.com/ccbluex/liquidbounce) for the house we live in
+- meteor devs for the actual client
+- liquidbounce for the house we live in
 - crosby-moe for [electron](https://github.com/crosby-moe/Electron) (we stole the ideas, not the code. rip, last commit june 2025)
 - the rat
 

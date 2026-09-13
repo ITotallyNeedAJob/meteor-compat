@@ -1,4 +1,0 @@
-.gradle/
-build/
-libs/*.jar
-!libs/.gitkeep

@@ -1,5 +1,5 @@
-plugins { id 'fabric-loom' version '1.16-SNAPSHOT'; id 'org.jetbrains.kotlin.jvm' version '2.3.10' }
-version = '1.0.0-compat'
+plugins { id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'; id 'org.jetbrains.kotlin.jvm' version '2.4.0' }
+version = '1.0.0-compat26.2'
 group = 'meteordevelopment'
 base { archivesName = 'meteor-compat' }
 repositories {
@@ -9,38 +9,40 @@ repositories {
     maven { url = 'https://maven.meteordev.org/snapshots' }
 }
 dependencies {
-    minecraft "com.mojang:minecraft:1.21.11"
-    mappings "net.fabricmc:yarn:1.21.11+build.3"
-    modImplementation "net.fabricmc:fabric-loader:0.19.3"
-    modImplementation "meteordevelopment:orbit:0.2.4"
+    // MC 26.1+ is unobfuscated: non-remapping Loom, no mappings line.
+    minecraft "com.mojang:minecraft:26.2"
+    implementation "net.fabricmc:fabric-loader:0.19.3"
+    implementation "meteordevelopment:orbit:0.2.4"
     include "meteordevelopment:orbit:0.2.4"
-    modImplementation "io.github.llamalad7:mixinextras-fabric:0.5.4"
-    modImplementation "it.unimi.dsi:fastutil:8.5.15"
-    modImplementation "org.jetbrains:annotations:26.0.2"
+    implementation "io.github.llamalad7:mixinextras-fabric:0.5.4"
+    implementation "it.unimi.dsi:fastutil:8.5.15"
+    implementation "org.jetbrains:annotations:26.0.2"
     include "com.google.code.findbugs:jsr305:3.0.2"
-    // Starscript (bundled JiJ like upstream) for utils/misc/MeteorStarscript.
-    modImplementation "org.meteordev:starscript:0.2.5"
+    implementation "org.meteordev:starscript:0.2.5"
     include "org.meteordev:starscript:0.2.5"
-    // WaybackAuthLib (bundled JiJ like upstream) for systems/accounts TokenAccount.
-    modImplementation "de.florianmichael:WaybackAuthLib:1.0.1"
-    include "de.florianmichael:WaybackAuthLib:1.0.1"
-    // MinecraftAuth + Reflections (bundled JiJ like upstream) for accounts + utils.
-    modImplementation "net.raphimc:MinecraftAuth:5.0.2"
+    implementation "de.florianreuth:waybackauthlib:1.1.0"
+    include "de.florianreuth:waybackauthlib:1.1.0"
+    implementation "net.raphimc:MinecraftAuth:5.0.2"
     include "net.raphimc:MinecraftAuth:5.0.2"
-    modImplementation "org.reflections:reflections:0.10.2"
+    implementation "org.reflections:reflections:0.10.2"
     include "org.reflections:reflections:0.10.2"
-    // Netty SOCKS (bundled JiJ like upstream) for ClientConnectionMixin proxies.
-    modImplementation "io.netty:netty-handler-proxy:4.2.7.Final"
-    include "io.netty:netty-handler-proxy:4.2.7.Final"
-    modImplementation "io.netty:netty-codec-socks:4.2.7.Final"
-    include "io.netty:netty-codec-socks:4.2.7.Final"
-    // Merged MeteorBridge (was a separate mod): Kotlin runtime provided by
-    // fabric-language-kotlin at runtime (present in mods/), never bundled.
-    modImplementation "net.fabricmc:fabric-language-kotlin:1.13.9+kotlin.2.3.10"
+    // Loom 1.17 `include` does not pull transitives: javassist (needed by
+    // reflections' classpath scanning at startup) must be nested explicitly.
+    implementation "org.javassist:javassist:3.28.0-GA"
+    include "org.javassist:javassist:3.28.0-GA"
+    implementation "io.netty:netty-handler-proxy:4.2.15.Final"
+    include "io.netty:netty-handler-proxy:4.2.15.Final"
+    implementation "io.netty:netty-codec-socks:4.2.15.Final"
+    include "io.netty:netty-codec-socks:4.2.15.Final"
+    // Kotlin runtime provided by fabric-language-kotlin at runtime, never bundled.
+    implementation "net.fabricmc:fabric-language-kotlin:1.13.12+kotlin.2.4.0"
+    // Baritone API (compileOnly like upstream): pathing + starscript reference it.
+    compileOnly "meteordevelopment:baritone:26.1-SNAPSHOT"
     // Compile against LiquidBounce, but do not bundle it. Plain compileOnly
-    // (NOT modCompileOnly): avoids Loom treating it as a nested mod. Only
-    // stable LB class/method names are referenced, so no remapping is needed.
-    compileOnly(files("libs/liquidbounce-0.37.0.jar"))
+    // (NOT modCompileOnly): avoids Loom treating it as a nested mod. Drop
+    // your LB 1.26.2 jar at libs/liquidbounce-1.26.2.jar. Only stable LB
+    // class/method names are referenced, so no remapping is needed.
+    compileOnly(files("libs/liquidbounce-1.26.2.jar"))
 }
 sourceSets {
     main {
@@ -57,7 +59,7 @@ sourceSets {
     }
 }
 jar { from sourceSets.bridge.output }
-loom { mixin { defaultRefmapName = 'meteor-compat.refmap.json' }; accessWidenerPath = file("resources/meteor-client.accesswidener") }
-tasks.withType(JavaCompile).configureEach { options.compilerArgs += ['-Xmaxerrs','100000','-Xmaxwarns','0']; options.fork = true; options.forkOptions.memoryMaximumSize = '4g'; options.failOnError = true }
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = '21'; freeCompilerArgs += ['-Xskip-prerelease-check', '-Xskip-metadata-version-check'] } }
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+loom { accessWidenerPath = file("resources/meteor-client.classtweaker") }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.compilerArgs += ['-Xmaxerrs','100000','-Xmaxwarns','0']; options.fork = true; options.forkOptions.memoryMaximumSize = '4g'; options.failOnError = true }
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = '25'; freeCompilerArgs += ['-Xskip-prerelease-check', '-Xskip-metadata-version-check'] } }
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }

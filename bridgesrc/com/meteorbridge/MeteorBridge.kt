@@ -68,9 +68,8 @@ object MeteorBridgeModule : ClientModule(
 
             if (!linked && proxies.isNotEmpty()) {
                 linked = true
-                // NOTE: no ClientModule.message() here on purpose: its signature
-                // touches net.minecraft classes, which this merged (yarn) module
-                // cannot resolve from the official-named LB jar. Console is enough.
+                // NOTE: console only (no ClientModule.message()): chat access
+                // from here is not safe during early ticks. Console is enough.
                 println("[MeteorBridge] Linked ${proxies.size} Meteor modules into ClickGUI (Misc).")
             }
 

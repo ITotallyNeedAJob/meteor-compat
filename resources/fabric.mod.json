@@ -17,10 +17,13 @@
     "meteor-client.mixins.json"
   ],
   "depends": {
-    "java": ">=21",
-    "minecraft": "1.21.11",
-    "fabricloader": ">=0.18.2",
+    "java": ">=25",
+    "minecraft": "26.2",
+    "fabricloader": ">=0.19.3",
     "fabric-language-kotlin": "*"
   },
-  "accessWidener": "meteor-client.accesswidener"
+  "accessWidener": "meteor-client.classtweaker",
+  "custom": {
+    "meteor-client:build_number": "compat26.2"
+  }
 }
