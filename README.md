@@ -7,7 +7,7 @@
 ```
 
 [live rat cam](https://bigrat.monster)
-
+![maybe logo maybe not](download.png)
 ## what is this
 
 you know how it is. you want liquidbounce but you also want your meteor addons. pick one? no. this is the bridge that lets meteor addons run **next to** liquidbounce on **1.21.11** without per-addon patches or whatever.
