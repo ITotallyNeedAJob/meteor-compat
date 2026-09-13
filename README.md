@@ -50,7 +50,7 @@ has some tweaks inspired by [electron](https://github.com/crosby-moe/Electron) b
 ## credits
 
 - [Meteor](https://github.com/meteorDevelopment/meteor-client) for the actual client
-- [Liquidbounce](https://github.com/ccbluex/liquidbounce)for the house we live in
+- [Liquidbounce](https://github.com/ccbluex/liquidbounce) for the house we live in
 - crosby-moe for [electron](https://github.com/crosby-moe/Electron) (we stole the ideas, not the code. rip, last commit june 2025)
 - the rat
 
