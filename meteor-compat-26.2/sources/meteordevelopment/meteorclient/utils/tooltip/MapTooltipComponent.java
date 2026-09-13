@@ -1,0 +1,72 @@
+/*
+ * This file is part of the Meteor Client distribution (https://github.com/MeteorDevelopment/meteor-client).
+ * Copyright (c) Meteor Development.
+ */
+
+package meteordevelopment.meteorclient.utils.tooltip;
+
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.state.MapRenderState;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.MapItem;
+import net.minecraft.world.level.saveddata.maps.MapId;
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
+import org.jspecify.annotations.NonNull;
+
+import static meteordevelopment.meteorclient.MeteorClient.mc;
+
+public class MapTooltipComponent implements ClientTooltipComponent, MeteorTooltipData {
+    private static final Identifier TEXTURE_MAP_BACKGROUND = Identifier.parse("textures/map/map_background.png");
+    private final int mapId;
+    private final MapRenderState mapRenderState = new MapRenderState();
+
+    public MapTooltipComponent(int mapId) {
+        this.mapId = mapId;
+    }
+
+    @Override
+    public int getHeight(@NonNull Font textRenderer) {
+        // COMPAT: BetterTooltips removed - mapsScale default was 1.
+        double scale = 1.0;
+        return (int) ((128 + 16) * scale) + 2;
+    }
+
+    @Override
+    public int getWidth(@NonNull Font textRenderer) {
+        // COMPAT: BetterTooltips removed - mapsScale default was 1.
+        double scale = 1.0;
+        return (int) ((128 + 16) * scale);
+    }
+
+    @Override
+    public ClientTooltipComponent getComponent() {
+        return this;
+    }
+
+    @Override
+    public void extractImage(@NonNull Font font, int x, int y, int width, int height, GuiGraphicsExtractor graphics) {
+        // COMPAT: BetterTooltips removed - mapsScale default was 1.
+        var scale = 1.0f;
+
+        // Background
+        int size = (int) ((128 + 16) * scale);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_MAP_BACKGROUND, x, y, 0, 0, size, size, size, size);
+
+        // Contents
+        MapItemSavedData mapState = MapItem.getSavedData(new MapId(mapId), mc.level);
+        if (mapState == null) return;
+
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(x, y);
+        graphics.pose().scale(scale, scale);
+        graphics.pose().translate(8, 8);
+
+        mc.getMapRenderer().extractRenderState(new MapId(mapId), mapState, mapRenderState);
+        graphics.map(mapRenderState);
+
+        graphics.pose().popMatrix();
+    }
+}

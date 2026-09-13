@@ -1,0 +1,616 @@
+/*
+ * This file is part of the Meteor Client distribution (https://github.com/MeteorDevelopment/meteor-client).
+ * Copyright (c) Meteor Development.
+ */
+
+package meteordevelopment.meteorclient.utils;
+
+import com.mojang.blaze3d.ProjectionType;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.serialization.DataResult;
+import it.unimi.dsi.fastutil.objects.*;
+import meteordevelopment.meteorclient.MeteorClient;
+import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.gui.tabs.TabScreen;
+import meteordevelopment.meteorclient.mixin.*;
+import meteordevelopment.meteorclient.mixininterface.IMinecraft;
+import meteordevelopment.meteorclient.settings.StatusEffectAmplifierMapSetting;
+import meteordevelopment.meteorclient.systems.modules.Modules;
+import meteordevelopment.meteorclient.utils.misc.Names;
+import meteordevelopment.meteorclient.utils.player.EChestMemory;
+import meteordevelopment.meteorclient.utils.render.PeekScreen;
+import meteordevelopment.meteorclient.utils.render.RenderUtils;
+import meteordevelopment.meteorclient.utils.render.color.Color;
+import meteordevelopment.meteorclient.utils.world.BlockEntityIterator;
+import meteordevelopment.meteorclient.utils.world.ChunkIterator;
+import meteordevelopment.orbit.EventHandler;
+import net.minecraft.client.ResourceLoadStateTracker;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.renderer.Projection;
+import net.minecraft.client.renderer.ProjectionMatrixBuffer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.ItemStackWithSlot;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.*;
+import net.minecraft.world.item.component.TypedEntityData;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ColorCollection;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.phys.Vec3;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.Range;
+import org.joml.Matrix4f;
+import org.joml.Vector3d;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.util.*;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import static meteordevelopment.meteorclient.MeteorClient.mc;
+
+public class Utils {
+    public static final Pattern FILE_NAME_INVALID_CHARS_PATTERN = Pattern.compile("[\\s\\\\/:*?\"<>|]");
+    public static final Color WHITE = new Color(255, 255, 255);
+
+    private static final Random random = new Random();
+    public static boolean isReleasingTrident;
+    public static boolean rendering3D = true;
+    public static double frameTime;
+    public static Screen screenToOpen;
+
+    private static final ProjectionMatrixBuffer matrixBuffer = new ProjectionMatrixBuffer("meteor-projection-matrix");
+
+    private Utils() {
+    }
+
+    @PreInit
+    public static void init() {
+        MeteorClient.EVENT_BUS.subscribe(Utils.class);
+    }
+
+    @EventHandler
+    private static void onTick(TickEvent.Post event) {
+        if (screenToOpen != null && mc.gui.screen() == null) {
+            mc.gui.setScreen(screenToOpen);
+            screenToOpen = null;
+        }
+    }
+
+    public static Vec3 getPlayerSpeed() {
+        if (mc.player == null) return Vec3.ZERO;
+
+        double tX = mc.player.getX() - mc.player.xo;
+        double tY = mc.player.getY() - mc.player.yo;
+        double tZ = mc.player.getZ() - mc.player.zo;
+
+        // COMPAT: Timer removed - no speed multiplier.
+
+        tX *= 20;
+        tY *= 20;
+        tZ *= 20;
+
+        return new Vec3(tX, tY, tZ);
+    }
+
+    public static String getWorldTime() {
+        if (mc.level == null) return "00:00";
+
+        int ticks = (int) (mc.level.getGameTime() % 24000);
+        ticks += 6000;
+        if (ticks > 24000) ticks -= 24000;
+
+        return String.format("%02d:%02d", ticks / 1000, (int) (ticks % 1000 / 1000.0 * 60));
+    }
+
+    public static Iterable<ChunkAccess> chunks(boolean onlyWithLoadedNeighbours) {
+        return () -> new ChunkIterator(onlyWithLoadedNeighbours);
+    }
+
+    public static Iterable<ChunkAccess> chunks() {
+        return chunks(false);
+    }
+
+    public static Iterable<BlockEntity> blockEntities() {
+        return BlockEntityIterator::new;
+    }
+
+    public static void getEnchantments(ItemStack itemStack, Object2IntMap<Holder<Enchantment>> enchantments) {
+        enchantments.clear();
+
+        if (!itemStack.isEmpty()) {
+            Set<Object2IntMap.Entry<Holder<Enchantment>>> itemEnchantments = itemStack.getItem() == Items.ENCHANTED_BOOK
+                ? itemStack.getOrDefault(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY).entrySet()
+                : itemStack.getEnchantments().entrySet();
+
+            for (Object2IntMap.Entry<Holder<Enchantment>> entry : itemEnchantments) {
+                enchantments.put(entry.getKey(), entry.getIntValue());
+            }
+        }
+    }
+
+    public static int getEnchantmentLevel(ItemStack itemStack, ResourceKey<Enchantment> enchantment) {
+        if (itemStack.isEmpty()) return 0;
+        Object2IntMap<Holder<Enchantment>> itemEnchantments = new Object2IntArrayMap<>();
+        getEnchantments(itemStack, itemEnchantments);
+        return getEnchantmentLevel(itemEnchantments, enchantment);
+    }
+
+    public static int getEnchantmentLevel(Object2IntMap<Holder<Enchantment>> itemEnchantments, ResourceKey<Enchantment> enchantment) {
+        for (Object2IntMap.Entry<Holder<Enchantment>> entry : Object2IntMaps.fastIterable(itemEnchantments)) {
+            if (entry.getKey().is(enchantment)) return entry.getIntValue();
+        }
+        return 0;
+    }
+
+    @SafeVarargs
+    public static boolean hasEnchantments(ItemStack itemStack, ResourceKey<Enchantment>... enchantments) {
+        if (itemStack.isEmpty()) return false;
+        Object2IntMap<Holder<Enchantment>> itemEnchantments = new Object2IntArrayMap<>();
+        getEnchantments(itemStack, itemEnchantments);
+
+        for (ResourceKey<Enchantment> enchantment : enchantments) {
+            if (!hasEnchantment(itemEnchantments, enchantment)) return false;
+        }
+        return true;
+    }
+
+    public static boolean hasEnchantment(ItemStack itemStack, ResourceKey<Enchantment> enchantmentKey) {
+        if (itemStack.isEmpty()) return false;
+        Object2IntMap<Holder<Enchantment>> itemEnchantments = new Object2IntArrayMap<>();
+        getEnchantments(itemStack, itemEnchantments);
+        return hasEnchantment(itemEnchantments, enchantmentKey);
+    }
+
+    private static boolean hasEnchantment(Object2IntMap<Holder<Enchantment>> itemEnchantments, ResourceKey<Enchantment> enchantmentKey) {
+        for (Holder<Enchantment> enchantment : itemEnchantments.keySet()) {
+            if (enchantment.is(enchantmentKey)) return true;
+        }
+        return false;
+    }
+
+    public static boolean isFood(ItemStack stack) {
+        return isFood(stack.getItem());
+    }
+
+    // Not every food item in minecraft is consumable for some reason (e.g. buckets of any fish)
+    public static boolean isFood(Item item) {
+        return item.components().has(DataComponents.FOOD) && item.components().has(DataComponents.CONSUMABLE);
+    }
+
+    public static int getRenderDistance() {
+        return Math.max(mc.options.renderDistance().get(), ((ClientPacketListenerAccessor) mc.getConnection()).meteor$getServerChunkRadius());
+    }
+
+    public static int getWindowWidth() {
+        return mc.getWindow().getWidth();
+    }
+
+    public static int getWindowHeight() {
+        return mc.getWindow().getHeight();
+    }
+
+    public static void unscaledProjection() {
+        float width = mc.getWindow().getWidth();
+        float height = mc.getWindow().getHeight();
+
+        var proj = new Projection();
+        proj.setupOrtho(-10, 100, width, height, true);
+        var matrix = proj.getMatrix(new Matrix4f());
+
+        RenderSystem.setProjectionMatrix(matrixBuffer.getBuffer(matrix), ProjectionType.ORTHOGRAPHIC);
+        RenderUtils.projection.set(matrix);
+
+        rendering3D = false;
+    }
+
+    public static void scaledProjection() {
+        float width = (float) (mc.getWindow().getWidth() / mc.getWindow().getGuiScale());
+        float height = (float) (mc.getWindow().getHeight() / mc.getWindow().getGuiScale());
+
+        var proj = new Projection();
+        proj.setupOrtho(-10, 100, width, height, true);
+        var matrix = proj.getMatrix(new Matrix4f());
+
+        RenderSystem.setProjectionMatrix(matrixBuffer.getBuffer(matrix), ProjectionType.PERSPECTIVE);
+        RenderUtils.projection.set(matrix);
+
+        rendering3D = true;
+    }
+
+    public static Vec3 vec3(BlockPos pos) {
+        return new Vec3(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    public static boolean openContainer(ItemStack itemStack, ItemStack[] contents, boolean pause) {
+        if (hasItems(itemStack) || itemStack.getItem() == Items.ENDER_CHEST) {
+            Utils.getItemsInContainerItem(itemStack, contents);
+            if (pause) screenToOpen = new PeekScreen(itemStack, contents);
+            else mc.gui.setScreen(new PeekScreen(itemStack, contents));
+            return true;
+        }
+
+        return false;
+    }
+
+    public static void getItemsInContainerItem(ItemStack itemStack, ItemStack[] items) {
+        if (itemStack.getItem() == Items.ENDER_CHEST) {
+            for (int i = 0; i < EChestMemory.ITEMS.size(); i++) {
+                items[i] = EChestMemory.ITEMS.get(i);
+            }
+
+            return;
+        }
+
+        Arrays.fill(items, ItemStack.EMPTY);
+        DataComponentMap components = itemStack.getComponents();
+
+        if (components.has(DataComponents.CONTAINER)) {
+            var stacks = components.get(DataComponents.CONTAINER).allItemsCopyStream().toList();
+
+            for (int i = 0; i < stacks.size(); i++) {
+                if (i >= 0 && i < items.length) items[i] = stacks.get(i);
+            }
+        } else if (components.has(DataComponents.BLOCK_ENTITY_DATA)) {
+            TypedEntityData<BlockEntityType<?>> blockEntityData = components.get(DataComponents.BLOCK_ENTITY_DATA);
+            if (blockEntityData == null) return;
+            ListTag nbt3 = blockEntityData.copyTagWithoutId().getListOrEmpty("Items");
+
+            for (int i = 0; i < nbt3.size(); i++) {
+                Optional<CompoundTag> compound = nbt3.getCompound(i);
+                if (compound.isEmpty()) continue;
+
+                Optional<Byte> slot = compound.get().getByte("Slot"); // Apparently shulker boxes can store more than 27 items, good job Mojang
+                if (slot.isEmpty()) continue;
+
+                // now NPEs when mc.world == null
+                if (slot.get() >= 0 && slot.get() < items.length) {
+                    switch (ItemStackWithSlot.CODEC.parse(mc.player.registryAccess().createSerializationContext(NbtOps.INSTANCE), compound.get())) {
+                        case DataResult.Success<ItemStackWithSlot> success ->
+                            items[slot.get()] = success.value().stack();
+                        case DataResult.Error<ItemStackWithSlot> _ -> items[slot.get()] = ItemStack.EMPTY;
+                        default -> throw new MatchException(null, null);
+                    }
+                }
+            }
+        }
+    }
+
+    public static Color getShulkerColor(ItemStack shulkerItem) {
+        if (shulkerItem.getItem() instanceof BlockItem blockItem) {
+            Block block = blockItem.getBlock();
+            if (block == Blocks.ENDER_CHEST) return new Color(0, 50, 50); // COMPAT: was BetterTooltips.ECHEST_COLOR
+
+            if (block instanceof ShulkerBoxBlock shulkerBlock) {
+                DyeColor dye = shulkerBlock.getColor();
+                if (dye == null) return WHITE;
+
+                final int color = dye.getTextureDiffuseColor();
+                return new Color((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, 255);
+            }
+        }
+
+        return WHITE;
+    }
+
+    public static boolean hasItems(ItemStack itemStack) {
+        var container = itemStack.get(DataComponents.CONTAINER);
+
+        if (container != null) {
+            var items = container.nonEmptyItems().iterator();
+            if (items.hasNext()) return true;
+        }
+
+        TypedEntityData<BlockEntityType<?>> blockEntityData = itemStack.get(DataComponents.BLOCK_ENTITY_DATA);
+        return blockEntityData != null && blockEntityData.contains("Items");
+    }
+
+    public static Reference2IntMap<MobEffect> createStatusEffectMap() {
+        return new Reference2IntArrayMap<>(StatusEffectAmplifierMapSetting.EMPTY_STATUS_EFFECT_MAP);
+    }
+
+    public static String getEnchantSimpleName(Holder<Enchantment> enchantment, int length) {
+        String name = Names.get(enchantment);
+        return name.length() > length ? name.substring(0, length) : name;
+    }
+
+    public static boolean searchTextDefault(String text, String filter, boolean caseSensitive) {
+        return searchInWords(text, filter) > 0 || searchLevenshteinDefault(text, filter, caseSensitive) < text.length() / 2;
+    }
+
+    public static int searchLevenshteinDefault(String text, String filter, boolean caseSensitive) {
+        return levenshteinDistance(caseSensitive ? filter : filter.toLowerCase(Locale.ROOT), caseSensitive ? text : text.toLowerCase(Locale.ROOT), 1, 8, 8);
+    }
+
+    public static int searchInWords(String text, String filter) {
+        if (filter.isEmpty()) return 1;
+
+        int wordsFound = 0;
+        text = text.toLowerCase(Locale.ROOT);
+        String[] words = filter.toLowerCase(Locale.ROOT).split(" ");
+
+        for (String word : words) {
+            if (!text.contains(word)) return 0;
+            wordsFound += StringUtils.countMatches(text, word);
+        }
+
+        return wordsFound;
+    }
+
+    public static int levenshteinDistance(String from, String to, int insCost, int subCost, int delCost) {
+        int textLength = from.length();
+        int filterLength = to.length();
+
+        if (textLength == 0) return filterLength * insCost;
+        if (filterLength == 0) return textLength * delCost;
+
+        // Populate matrix
+        int[][] d = new int[textLength + 1][filterLength + 1];
+
+        for (int i = 0; i <= textLength; i++) {
+            d[i][0] = i * delCost;
+        }
+
+        for (int j = 0; j <= filterLength; j++) {
+            d[0][j] = j * insCost;
+        }
+
+        // Find best route
+        for (int i = 1; i <= textLength; i++) {
+            for (int j = 1; j <= filterLength; j++) {
+                int sCost = d[i - 1][j - 1] + (from.charAt(i - 1) == to.charAt(j - 1) ? 0 : subCost);
+                int dCost = d[i - 1][j] + delCost;
+                int iCost = d[i][j - 1] + insCost;
+                d[i][j] = Math.min(Math.min(dCost, iCost), sCost);
+            }
+        }
+
+        return d[textLength][filterLength];
+    }
+
+    public static double squaredDistance(double x1, double y1, double z1, double x2, double y2, double z2) {
+        double dX = x2 - x1;
+        double dY = y2 - y1;
+        double dZ = z2 - z1;
+        return dX * dX + dY * dY + dZ * dZ;
+    }
+
+    public static double distance(double x1, double y1, double z1, double x2, double y2, double z2) {
+        double dX = x2 - x1;
+        double dY = y2 - y1;
+        double dZ = z2 - z1;
+        return Math.sqrt(dX * dX + dY * dY + dZ * dZ);
+    }
+
+    public static String getFileWorldName() {
+        return FILE_NAME_INVALID_CHARS_PATTERN.matcher(getWorldName()).replaceAll("_");
+    }
+
+    /**
+     * Use {@link Utils#getFileWorldName()} if you are using the world name as a file/directory name
+     */
+    public static String getWorldName() {
+        // Singleplayer
+        if (mc.isLocalServer()) {
+            if (mc.level == null) return "";
+            if (mc.getSingleplayerServer() == null) return "FAILED_BECAUSE_LEFT_WORLD";
+
+            File folder = ((MinecraftServerAccessor) mc.getSingleplayerServer()).meteor$getStorageSource().getDimensionPath(mc.level.dimension()).toFile();
+            if (folder.toPath().relativize(mc.gameDirectory.toPath()).getNameCount() != 2) {
+                folder = folder.getParentFile();
+            }
+            return folder.getName();
+        }
+
+        // Multiplayer
+        if (mc.getCurrentServer() != null) {
+            return mc.getCurrentServer().isRealm() ? "realms" : mc.getCurrentServer().ip;
+        }
+
+        return "";
+    }
+
+    public static String nameToTitle(String name) {
+        return Arrays.stream(name.split("-")).map(StringUtils::capitalize).collect(Collectors.joining(" "));
+    }
+
+    public static String titleToName(String title) {
+        return title.replace(" ", "-").toLowerCase(Locale.ROOT);
+    }
+
+    public static byte[] readBytes(InputStream in) {
+        try {
+            return in.readAllBytes();
+        } catch (IOException e) {
+            MeteorClient.LOG.error("Error reading from stream.", e);
+            return new byte[0];
+        } finally {
+            IOUtils.closeQuietly(in);
+        }
+    }
+
+    public static boolean canUpdate() {
+        return mc != null && mc.level != null && mc.player != null;
+    }
+
+    public static boolean canOpenGui() {
+        if (canUpdate()) return mc.gui.screen() == null;
+        return mc.gui.screen() instanceof TitleScreen
+            || mc.gui.screen() instanceof JoinMultiplayerScreen
+            || mc.gui.screen() instanceof SelectWorldScreen;
+    }
+
+    public static boolean canCloseGui() {
+        return mc.gui.screen() instanceof TabScreen;
+    }
+
+    public static int random(int min, int max) {
+        return random.nextInt(max - min) + min;
+    }
+
+    public static double random(double min, double max) {
+        return min + (max - min) * random.nextDouble();
+    }
+
+    public static void leftClick() {
+        // check if a screen is open
+        // see net.minecraft.client.Mouse.lockCursor
+        // see net.minecraft.client.MinecraftClient.tick
+        int attackCooldown = ((MinecraftAccessor) mc).meteor$getMissTime();
+        if (attackCooldown == 10000) {
+            ((MinecraftAccessor) mc).meteor$setMissTime(0);
+        }
+
+        mc.options.keyAttack.setDown(true);
+        ((MinecraftAccessor) mc).meteor$leftClick();
+        mc.options.keyAttack.setDown(false);
+    }
+
+    public static void rightClick() {
+        ((IMinecraft) mc).meteor$rightClick();
+    }
+
+    public static boolean isShulker(Item item) {
+        return item == Items.SHULKER_BOX || contains(Items.DYED_SHULKER_BOX, item);
+    }
+
+    public static <T> boolean contains(ColorCollection<T> collection, T value) {
+        return collection.white() == value
+            || collection.orange() == value
+            || collection.magenta() == value
+            || collection.lightBlue() == value
+            || collection.yellow() == value
+            || collection.lime() == value
+            || collection.pink() == value
+            || collection.gray() == value
+            || collection.lightGray() == value
+            || collection.cyan() == value
+            || collection.purple() == value
+            || collection.blue() == value
+            || collection.brown() == value
+            || collection.green() == value
+            || collection.red() == value
+            || collection.black() == value;
+    }
+
+    public static boolean isThrowable(Item item) {
+        return item instanceof ExperienceBottleItem || item instanceof BowItem || item instanceof CrossbowItem || item instanceof SnowballItem || item instanceof EggItem || item instanceof EnderpearlItem || item instanceof SplashPotionItem || item instanceof LingeringPotionItem || item instanceof FishingRodItem || item instanceof TridentItem;
+    }
+
+    public static void addEnchantment(ItemStack itemStack, Holder<Enchantment> enchantment, int level) {
+        ItemEnchantments.Mutable b = new ItemEnchantments.Mutable(EnchantmentHelper.getEnchantmentsForCrafting(itemStack));
+        b.set(enchantment, level);
+
+        EnchantmentHelper.setEnchantments(itemStack, b.toImmutable());
+    }
+
+    public static void clearEnchantments(ItemStack itemStack) {
+        EnchantmentHelper.updateEnchantments(itemStack, components -> components.removeIf(a -> true));
+    }
+
+    public static void removeEnchantment(ItemStack itemStack, Enchantment enchantment) {
+        EnchantmentHelper.updateEnchantments(itemStack, components -> components.removeIf(enchantment1 -> enchantment1.value().equals(enchantment)));
+    }
+
+    public static Color lerp(Color first, Color second, @Range(from = 0, to = 1) float v) {
+        return new Color(
+            (int) (first.r * (1 - v) + second.r * v),
+            (int) (first.g * (1 - v) + second.g * v),
+            (int) (first.b * (1 - v) + second.b * v)
+        );
+    }
+
+    public static boolean isLoading() {
+        ResourceLoadStateTracker.ReloadState state = ((ResourceLoadStateTrackerAccessor) ((MinecraftAccessor) mc).meteor$getReloadStateTracker()).meteor$getReloadState();
+        return state == null || !((ReloadStateAccessor) state).meteor$isFinished();
+    }
+
+    public static int parsePort(String full) {
+        if (full == null || full.isBlank() || !full.contains(":")) return -1;
+
+        int port;
+
+        try {
+            port = Integer.parseInt(full.substring(full.lastIndexOf(':') + 1, full.length() - 1));
+        } catch (NumberFormatException _) {
+            port = -1;
+        }
+
+        return port;
+    }
+
+    public static String parseAddress(String full) {
+        if (full == null || full.isBlank() || !full.contains(":")) return full;
+        return full.substring(0, full.lastIndexOf(':'));
+    }
+
+    public static boolean resolveAddress(String address) {
+        if (address == null || address.isBlank()) return false;
+
+        int port = parsePort(address);
+        if (port == -1) port = 25565;
+        else address = parseAddress(address);
+
+        return resolveAddress(address, port);
+    }
+
+    public static boolean resolveAddress(String address, int port) {
+        if (port <= 0 || port > 65535 || address == null || address.isBlank()) return false;
+        InetSocketAddress socketAddress = new InetSocketAddress(address, port);
+        return !socketAddress.isUnresolved();
+    }
+
+    public static Vector3d set(Vector3d vec, Vec3 v) {
+        vec.x = v.x;
+        vec.y = v.y;
+        vec.z = v.z;
+
+        return vec;
+    }
+
+    public static Vector3d set(Vector3d vec, Entity entity, double tickDelta) {
+        vec.x = Mth.lerp(tickDelta, entity.xOld, entity.getX());
+        vec.y = Mth.lerp(tickDelta, entity.yOld, entity.getY());
+        vec.z = Mth.lerp(tickDelta, entity.zOld, entity.getZ());
+
+        return vec;
+    }
+
+    // Filters
+
+    public static boolean nameFilter(String text, char character) {
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '_' || character == '-' || character == '.' || character == ' ';
+    }
+
+    public static boolean fileNameFilter(String text, char character) {
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '_' || character == '-' || character == ' ';
+    }
+
+    public static boolean ipFilter(String text, char character) {
+        if (text.contains(":") && character == ':') return false;
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '.' || character == '-' || character == ':';
+    }
+}

@@ -1,0 +1,254 @@
+/*
+ * This file is part of the Meteor Client distribution (https://github.com/MeteorDevelopment/meteor-client).
+ * Copyright (c) Meteor Development.
+ */
+
+package meteordevelopment.meteorclient.systems.waypoints;
+
+import meteordevelopment.meteorclient.MeteorClient;
+import meteordevelopment.meteorclient.renderer.Renderer2D;
+import meteordevelopment.meteorclient.settings.*;
+import meteordevelopment.meteorclient.utils.misc.ISerializable;
+import meteordevelopment.meteorclient.utils.player.PlayerUtils;
+import meteordevelopment.meteorclient.utils.render.color.SettingColor;
+import meteordevelopment.meteorclient.utils.world.Dimension;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
+public class Waypoint implements ISerializable<Waypoint> {
+    public final Settings settings = new Settings();
+
+    private final SettingGroup sgVisual = settings.createGroup("Visual");
+    private final SettingGroup sgPosition = settings.createGroup("Position");
+
+    public enum NearAction {
+        Disabled, Hide, Delete
+    }
+
+    public Setting<String> name = sgVisual.add(new StringSetting.Builder()
+        .name("name")
+        .description("The name of the waypoint.")
+        .defaultValue("Home")
+        .build()
+    );
+
+    public Setting<String> icon = sgVisual.add(new ProvidedStringSetting.Builder()
+        .name("icon")
+        .description("The icon of the waypoint.")
+        .defaultValue("Square")
+        .supplier(() -> Waypoints.BUILTIN_ICONS)
+        .onChanged(_ -> validateIcon())
+        .build()
+    );
+
+    public Setting<SettingColor> color = sgVisual.add(new ColorSetting.Builder()
+        .name("color")
+        .description("The color of the waypoint.")
+        .defaultValue(MeteorClient.ADDON.color.toSetting())
+        .build()
+    );
+
+    public Setting<Boolean> visible = sgVisual.add(new BoolSetting.Builder()
+        .name("visible")
+        .description("Whether to show the waypoint.")
+        .defaultValue(true)
+        .build()
+    );
+
+    public Setting<Integer> maxVisible = sgVisual.add(new IntSetting.Builder()
+        .name("max-visible-distance")
+        .description("How far away to render the waypoint.")
+        .defaultValue(5000)
+        .build()
+    );
+
+    public Setting<Double> scale = sgVisual.add(new DoubleSetting.Builder()
+        .name("scale")
+        .description("The scale of the waypoint.")
+        .defaultValue(1.5)
+        .build()
+    );
+
+    public Setting<BlockPos> pos = sgPosition.add(new BlockPosSetting.Builder()
+        .name("location")
+        .description("The location of the waypoint.")
+        .defaultValue(BlockPos.ZERO)
+        .build()
+    );
+
+    public Setting<Dimension> dimension = sgPosition.add(new EnumSetting.Builder<Dimension>()
+        .name("dimension")
+        .description("Which dimension the waypoint is in.")
+        .defaultValue(Dimension.Overworld)
+        .build()
+    );
+
+    public Setting<Boolean> opposite = sgPosition.add(new BoolSetting.Builder()
+        .name("opposite-dimension")
+        .description("Whether to show the waypoint in the opposite dimension.")
+        .defaultValue(true)
+        .visible(() -> dimension.get() != Dimension.End)
+        .build()
+    );
+
+    public Setting<NearAction> actionWhenNear = sgPosition.add(new EnumSetting.Builder<NearAction>()
+        .name("action-when-near")
+        .description("Action to be performed when the player is near.")
+        .defaultValue(NearAction.Disabled)
+        .build()
+    );
+
+    public Setting<Integer> actionWhenNearDistance = sgPosition.add(new IntSetting.Builder()
+        .name("action-when-near-distance")
+        .description("How close (in blocks) the player has to be for the near action to be performed.")
+        .defaultValue(8)
+        .sliderRange(0, 32)
+        .visible(() -> actionWhenNear.get() != NearAction.Disabled)
+        .build()
+    );
+
+    public final UUID uuid;
+    public final long createdAt;
+
+    // 1 second cooldown for waypoint actions
+    final int waypointActionCooldown = 1000;
+
+    private Waypoint() {
+        uuid = UUID.randomUUID();
+        createdAt = System.currentTimeMillis();
+    }
+
+    public Waypoint(Tag tag) {
+        CompoundTag nbt = (CompoundTag) tag;
+
+        uuid = nbt.read("uuid", UUIDUtil.CODEC).orElse(UUID.randomUUID());
+        createdAt = System.currentTimeMillis();
+
+        fromTag(nbt);
+    }
+
+    public void renderIcon(double x, double y, double a, double size) {
+        AbstractTexture texture = Waypoints.get().icons.get(icon.get());
+        if (texture == null) return;
+
+        int preA = color.get().a;
+        color.get().a *= a;
+
+        Renderer2D.TEXTURE.begin();
+        Renderer2D.TEXTURE.texQuad(x, y, size, size, color.get());
+        Renderer2D.TEXTURE.render(texture.getTextureView(), texture.getSampler());
+
+        color.get().a = preA;
+    }
+
+    public BlockPos getPos() {
+        Dimension dim = dimension.get();
+        BlockPos pos = this.pos.get();
+
+        Dimension currentDim = PlayerUtils.getDimension();
+        if (dim == currentDim || dim.equals(Dimension.End)) return this.pos.get();
+
+        return switch (dim) {
+            case Overworld -> new BlockPos(pos.getX() / 8, pos.getY(), pos.getZ() / 8);
+            case Nether -> new BlockPos(pos.getX() * 8, pos.getY(), pos.getZ() * 8);
+            default -> null;
+        };
+    }
+
+    public boolean actionWhenNearCheck(int distance) {
+        // Add cooldown to near check, to account for death event inaccuracies
+        if ((System.currentTimeMillis() - createdAt) < waypointActionCooldown) return false;
+
+        return actionWhenNearDistance.get() >= distance;
+    }
+
+    private void validateIcon() {
+        Map<String, AbstractTexture> icons = Waypoints.get().icons;
+
+        AbstractTexture texture = icons.get(icon.get());
+        if (texture == null && !icons.isEmpty()) {
+            icon.set(icons.keySet().iterator().next());
+        }
+    }
+
+    public static class Builder {
+        private String name = "", icon = "";
+        private BlockPos pos = BlockPos.ZERO;
+        private Dimension dimension = Dimension.Overworld;
+
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder icon(String icon) {
+            this.icon = icon;
+            return this;
+        }
+
+        public Builder pos(BlockPos pos) {
+            this.pos = pos;
+            return this;
+        }
+
+        public Builder dimension(Dimension dimension) {
+            this.dimension = dimension;
+            return this;
+        }
+
+        public Waypoint build() {
+            Waypoint waypoint = new Waypoint();
+
+            if (!name.equals(waypoint.name.getDefaultValue())) waypoint.name.set(name);
+            if (!icon.equals(waypoint.icon.getDefaultValue())) waypoint.icon.set(icon);
+            if (!pos.equals(waypoint.pos.getDefaultValue())) waypoint.pos.set(pos);
+            if (!dimension.equals(waypoint.dimension.getDefaultValue())) waypoint.dimension.set(dimension);
+
+            return waypoint;
+        }
+    }
+
+    @Override
+    public CompoundTag toTag() {
+        CompoundTag tag = new CompoundTag();
+
+        tag.store("uuid", UUIDUtil.CODEC, uuid);
+        tag.put("settings", settings.toTag());
+
+        return tag;
+    }
+
+    @Override
+    public Waypoint fromTag(CompoundTag tag) {
+        if (tag.contains("settings")) {
+            settings.fromTag(tag.getCompoundOrEmpty("settings"));
+        }
+
+        return this;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Waypoint waypoint = (Waypoint) o;
+        return Objects.equals(uuid, waypoint.uuid);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(uuid);
+    }
+
+    @Override
+    public String toString() {
+        return name.get();
+    }
+}

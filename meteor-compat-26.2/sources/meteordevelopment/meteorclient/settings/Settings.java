@@ -1,0 +1,184 @@
+/*
+ * This file is part of the Meteor Client distribution (https://github.com/MeteorDevelopment/meteor-client).
+ * Copyright (c) Meteor Development.
+ */
+
+package meteordevelopment.meteorclient.settings;
+
+import meteordevelopment.meteorclient.gui.GuiTheme;
+import meteordevelopment.meteorclient.gui.widgets.containers.WContainer;
+import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.meteorclient.utils.misc.ISerializable;
+import meteordevelopment.meteorclient.utils.render.color.RainbowColors;
+import meteordevelopment.meteorclient.utils.render.color.SettingColor;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import org.jspecify.annotations.NonNull;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+public class Settings implements ISerializable<Settings>, Iterable<SettingGroup> {
+    private SettingGroup defaultGroup;
+    private boolean invalidate;
+
+    public final List<SettingGroup> groups = new ArrayList<>(1);
+
+    public void onActivated() {
+        for (SettingGroup group : groups) {
+            for (Setting<?> setting : group) {
+                setting.onActivated();
+            }
+        }
+    }
+
+    public Setting<?> get(String name) {
+        for (SettingGroup sg : this) {
+            for (Setting<?> setting : sg) {
+                if (name.equalsIgnoreCase(setting.name)) return setting;
+            }
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> Setting<T> get(String name, Class<T> tClass) {
+        for (SettingGroup sg : this) {
+            for (Setting<?> setting : sg) {
+                Class<?> sClass = setting.getDefaultValue().getClass();
+                if (name.equalsIgnoreCase(setting.name) && tClass.equals(sClass))
+                    return (Setting<T>) setting;
+            }
+        }
+
+        return null;
+    }
+
+    public void reset() {
+        for (SettingGroup group : groups) {
+            for (Setting<?> setting : group) {
+                setting.reset();
+            }
+        }
+
+        invalidate();
+    }
+
+    public void invalidate() {
+        invalidate = true;
+    }
+
+    public SettingGroup getGroup(String name) {
+        for (SettingGroup sg : this) {
+            if (sg.name.equals(name)) return sg;
+        }
+
+        return null;
+    }
+
+    public int sizeGroups() {
+        return groups.size();
+    }
+
+    public SettingGroup getDefaultGroup() {
+        if (defaultGroup == null) defaultGroup = createGroup("General");
+        return defaultGroup;
+    }
+
+    public SettingGroup createGroup(String name, boolean expanded) {
+        SettingGroup group = new SettingGroup(name, expanded);
+        groups.add(group);
+        return group;
+    }
+
+    public SettingGroup createGroup(String name) {
+        return createGroup(name, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void registerColorSettings(Module module) {
+        for (SettingGroup group : this) {
+            for (Setting<?> setting : group) {
+                setting.module = module;
+
+                if (setting instanceof ColorSetting) {
+                    RainbowColors.addSetting((Setting<SettingColor>) setting);
+                } else if (setting instanceof ColorListSetting) {
+                    RainbowColors.addSettingList((Setting<List<SettingColor>>) setting);
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public void unregisterColorSettings() {
+        for (SettingGroup group : this) {
+            for (Setting<?> setting : group) {
+                if (setting instanceof ColorSetting) {
+                    RainbowColors.removeSetting((Setting<SettingColor>) setting);
+                } else if (setting instanceof ColorListSetting) {
+                    RainbowColors.removeSettingList((Setting<List<SettingColor>>) setting);
+                }
+            }
+        }
+    }
+
+    public void tick(WContainer settings, GuiTheme theme) {
+        if (settings == null) return;
+
+        for (SettingGroup group : groups) {
+            for (Setting<?> setting : group) {
+                boolean visible = setting.isVisible();
+
+                if (visible != setting.lastWasVisible) {
+                    invalidate();
+                }
+
+                setting.lastWasVisible = visible;
+            }
+        }
+
+        if (invalidate) {
+            settings.clear();
+            settings.add(theme.settings(this)).expandX();
+            invalidate = false;
+        }
+    }
+
+    @Override
+    public @NonNull Iterator<SettingGroup> iterator() {
+        return groups.iterator();
+    }
+
+    @Override
+    public CompoundTag toTag() {
+        CompoundTag tag = new CompoundTag();
+
+        ListTag groupsTag = new ListTag();
+        for (SettingGroup group : groups) {
+            if (group.wasChanged()) groupsTag.add(group.toTag());
+        }
+        if (!groupsTag.isEmpty()) tag.put("groups", groupsTag);
+
+        return tag;
+    }
+
+    @Override
+    public Settings fromTag(CompoundTag tag) {
+        reset();
+
+        ListTag groupsTag = tag.getListOrEmpty("groups");
+
+        for (Tag t : groupsTag) {
+            CompoundTag groupTag = (CompoundTag) t;
+
+            SettingGroup sg = getGroup(groupTag.getStringOr("name", ""));
+            if (sg != null) sg.fromTag(groupTag);
+        }
+
+        return this;
+    }
+}
